@@ -1,4 +1,4 @@
-# Measure-Diversity-Inclusion
+# Measure Diversity & Inclusion & Attrition of An Organization 
 For this project, I obtained the <a href="https://www.kaggle.com/datasets/rhuebner/human-resources-data-set">HR dataset from Kaggle containing employees' details</a>. Before importing the CSV file into the MySQL workbench, I made some amendments on the dataset using Excel. For example, fill in the blank cell in the “DateofTermination” column with “NA”, and standardized the date formats. You may find the raw dataset and cleaned dataset in this repo. I have created a <a href="https://public.tableau.com/app/profile/ng.pooi.ling/viz/DiversityInclusion_16664233856160/Dashboard1">dashboard on Tableau Public</a>. The tableau had been uploaded to this repo too. Do remember to check it out! 😄
 
 # Hypothetical Questions & Results

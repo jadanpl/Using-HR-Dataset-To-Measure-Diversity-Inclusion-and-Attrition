@@ -1,8 +1,7 @@
 USE hr_dataset;
-SELECT * FROM hr_dataset;
-ALTER TABLE hr_dataset CHANGE `ï»¿Employee_Name`emp_name text;
+SELECT COUNT(*) FROM hr_dataset; --total 311 employees
 
-SELECT DISTINCT Department FROM hr_dataset; # 6 distinct departments in the dataset
+SELECT DISTINCT Department FROM hr_dataset; -- 6 distinct departments in the dataset
 
 -- number of current emplyees by marital status, gender, and department (top 10)
 SELECT MaritalDesc, Sex, Department, COUNT(*) AS num_of_emp
@@ -22,7 +21,7 @@ SELECT emp_name, Salary, Termd, Position,
 		ELSE "Executive"
 			END AS "Level",
 	State, DOB, 
-	round((DATEDIFF(STR_TO_DATE("4/21/2021","%m/%d/%Y"),STR_TO_DATE(DOB,"%m/%d/%Y"))/365),0) AS age, 
+	round((DATEDIFF(STR_TO_DATE("01/01/2019","%m/%d/%Y"),STR_TO_DATE(DOB,"%m/%d/%Y"))/365),0) AS age, 
 	CASE
 		WHEN YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))>=1946 AND YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))<=1964 THEN "Boomers"
 		WHEN YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))>=1965 AND YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))<=1980 THEN "Gen X"

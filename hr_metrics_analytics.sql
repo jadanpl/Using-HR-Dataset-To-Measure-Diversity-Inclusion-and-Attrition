@@ -1,7 +1,6 @@
 USE hr_dataset;
-SELECT COUNT(*) FROM hr_dataset; --total 311 employees
-
-SELECT DISTINCT Department FROM hr_dataset; -- 6 distinct departments in the dataset
+SELECT count(*) FROM hr_dataset; # total 311 employees
+SELECT * FROM hr_dataset;
 
 -- number of current emplyees by marital status, gender, and department (top 10)
 SELECT MaritalDesc, Sex, Department, COUNT(*) AS num_of_emp
@@ -15,13 +14,15 @@ LIMIT 10;
 CREATE VIEW eng_hr_dataset AS
 SELECT emp_name, Salary, Termd, Position, 
 	CASE
-		WHEN Position LIKE "%Manager%" THEN "Manager"
-		WHEN (position LIKE "%Director%") OR (position LIKE "%CEO%") OR (position LIKE "%CIO%") THEN "Top Management"
-		WHEN (Position LIKE "%Senior%") OR (Position LIKE "%Sr%") THEN "Senior Executive"
-		ELSE "Executive"
+		WHEN (Position LIKE "%Manager%") OR (Position LIKE "Principal%") OR (Position LIKE "Enterprise%") THEN "Manager"
+		WHEN (Position LIKE "%Director%") THEN "Director"
+        WHEN (Position LIKE "%CEO%") OR (Position LIKE "%CIO%") THEN "Executive"
+		WHEN (Position LIKE "%Senior%") OR (Position LIKE "%Sr%") THEN "Senior"
+        WHEN (Position LIKE "%Admin Asst%") OR (Position LIKE "%IT Support%") OR (Position LIKE "%Technician I%") THEN "Entry-Level / Support"
+		ELSE "Mid-Level"
 			END AS "Level",
 	State, DOB, 
-	round((DATEDIFF(STR_TO_DATE("01/01/2019","%m/%d/%Y"),STR_TO_DATE(DOB,"%m/%d/%Y"))/365),0) AS age, 
+	round((DATEDIFF(STR_TO_DATE("1/1/2019","%m/%d/%Y"),STR_TO_DATE(DOB,"%m/%d/%Y"))/365),0) AS age, 
 	CASE
 		WHEN YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))>=1946 AND YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))<=1964 THEN "Boomers"
 		WHEN YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))>=1965 AND YEAR(STR_TO_DATE(DOB,"%m/%d/%Y"))<=1980 THEN "Gen X"
@@ -32,7 +33,7 @@ SELECT emp_name, Salary, Termd, Position,
 	Sex, MaritalDesc, CitizenDesc, RaceDesc, DateofHire, DateofTermination, 
 	CASE
 		WHEN DateofTermination NOT LIKE "%NA%" THEN ROUND(DATEDIFF(STR_TO_DATE(DateofTermination,'%m/%d/%Y'), STR_TO_DATE(DateofHire,'%m/%d/%Y'))/365,2)
-		WHEN DateofTermination LIKE "%NA%" THEN ROUND(DATEDIFF(STR_TO_DATE("4/21/2021","%m/%d/%Y"), STR_TO_DATE(DateofHire, '%m/%d/%Y'))/365,2)
+		WHEN DateofTermination LIKE "%NA%" THEN ROUND(DATEDIFF(STR_TO_DATE("01/01/2019","%m/%d/%Y"), STR_TO_DATE(DateofHire, '%m/%d/%Y'))/365,2)
 			END AS serv_period,
 	TermReason, EmploymentStatus, Department, ManagerName, RecruitmentSource,
 	PerformanceScore, EngagementSurvey, EmpSatisfaction, SpecialProjectsCount, 
@@ -41,6 +42,7 @@ FROM hr_dataset;
 
 SELECT * FROM eng_hr_dataset;
 DESCRIBE eng_hr_dataset; # to examine the columns of the view eng_hr_dataset
+/*DROP VIEW eng_hr_dataset;*/
 
 -- trimmed average service period of the employees by gender and generations
 SELECT 
@@ -83,44 +85,30 @@ FROM (
     WHERE Termd =0
     GROUP BY Department)emp_dpt;
 
+-- Q U E R Y 2
+-- number of current (not resigned or teminated) employees by gender and department
+-- option 1
+SELECT 
+    Sex,
+    SUM(CASE WHEN Department LIKE 'Production%' THEN 1 ELSE 0 END) AS Production,
+    SUM(CASE WHEN Department LIKE 'IT%' THEN 1 ELSE 0 END) AS `IT/IS`,
+    SUM(CASE WHEN Department LIKE 'Software%' THEN 1 ELSE 0 END) AS `Software Engineering`,
+    SUM(CASE WHEN Department LIKE 'Admin%' THEN 1 ELSE 0 END) AS Admin,
+    SUM(CASE WHEN Department LIKE 'Sales%' THEN 1 ELSE 0 END) AS Sales,
+    SUM(CASE WHEN Department LIKE 'Executive%' THEN 1 ELSE 0 END) AS `Executive Office`,
+    COUNT(*) AS Total
+FROM hr_dataset
+WHERE Termd = 0
+GROUP BY Sex WITH ROLLUP;
+
+-- option 2 
 -- number and running total of current (not resigned or teminated) employees by gender and department
 SELECT Department, Sex, 
-	   COUNT(*) AS num_of_emp, 
+	   COUNT(*) AS num_of_emp,
 	   SUM(COUNT(*)) OVER(ORDER BY Department, Sex) AS running_total
 FROM hr_dataset
 WHERE Termd =0
 GROUP BY Department, Sex;
-
--- Q U E R Y 2
--- number of current (not resigned or teminated) employees by gender and department; use pivoting 
-SELECT 
-	Sex, SUM(Production) AS `Production`, SUM(`IT/IS`) AS `IT/IS`, 
-    SUM(`Software Engineering`) AS `Software Engineering`, 
-    SUM(`Admin Office`) AS `Admin`, SUM(Sales) AS `Sales`, 
-    SUM(`Executive Office`) AS `Executive Office`, SUM(Total) AS `Total`
-FROM(
-	SELECT sd.Sex, sd.Production, sd.`IT/IS`, sd.`Software Engineering`, sd.`Admin Office`, sd.Sales, sd.`Executive Office`, ns.Total
-	FROM(
-		SELECT Sex, 
-			   MAX(CASE WHEN Department LIKE 'Production%' THEN num_of_emp ELSE 0 END) AS `Production`,
-			   MAX(CASE WHEN Department LIKE 'IT%' THEN num_of_emp ELSE 0 END) AS `IT/IS`,
-			   MAX(CASE WHEN Department LIKE 'Software%' THEN num_of_emp ELSE 0 END) AS `Software Engineering`,
-			   MAX(CASE WHEN Department LIKE 'Admin%' THEN num_of_emp ELSE 0 END) AS `Admin Office`,
-			   MAX(CASE WHEN Department LIKE 'Sales%' THEN num_of_emp ELSE 0 END) AS `Sales`,
-			   MAX(CASE WHEN Department LIKE 'Executive%' THEN num_of_emp ELSE 0 END) AS `Executive Office`
-		FROM (
-			SELECT Department, Sex, COUNT(*) AS num_of_emp
-			FROM hr_dataset
-			WHERE Termd =0
-			GROUP BY Department, Sex)ds
-		GROUP BY Sex)sd
-	INNER JOIN (
-		SELECT Sex, COUNT(*) AS Total
-		FROM hr_dataset
-		WHERE Termd =0
-		GROUP BY Sex)ns
-	ON sd.Sex=ns.Sex)dns
-GROUP BY Sex WITH ROLLUP;
 
 
 -- Q U E R Y 3
@@ -138,7 +126,7 @@ FROM(
 INNER JOIN(
 	SELECT Department, `Level`,Sex, COUNT(*) AS current_emp
 	FROM eng_hr_dataset
-    	WHERE termd=0
+    WHERE termd=0
 	GROUP BY `Level`,Sex)a
 ON (a.`Level`=c.`Level`) AND (a.Sex=c.Sex)
 ORDER BY `Level`, pct_of_chg DESC;
@@ -148,13 +136,16 @@ ORDER BY `Level`, pct_of_chg DESC;
 -- by departments, job levels, genders, and races
 SELECT *
 FROM(
-	SELECT c.Department, c.`Level`, c.Sex, c.RaceDesc, original_total_emp, stayed_emp, left_emp, ROUND((left_emp/((original_total_emp+stayed_emp)/2))*100,2) AS turnover_rate
+	SELECT c.Department, c.`Level`, c.Sex, c.RaceDesc, original_total_emp, 
+    COALESCE(a.stayed_emp,0) AS stayed_emp,
+    COALESCE(b.left_emp,0) AS left_emp,
+    ROUND((COALESCE(b.left_emp,0)/original_total_emp)*100,2) AS turnover_rate
 	FROM(
 		SELECT Department,`Level`,Sex, RaceDesc, COUNT(*) AS original_total_emp
 		FROM eng_hr_dataset
         GROUP BY Department, `Level`,Sex, RaceDesc)c
 	LEFT JOIN(
-		SELECT Department, `Level`,Sex, RaceDesc, COUNT(*) AS stayed_emp
+		SELECT Department, `Level`,Sex, RaceDesc,COUNT(*) AS stayed_emp
 		FROM eng_hr_dataset
 		WHERE termd=0
 		GROUP BY Department, `Level`,Sex, RaceDesc)a
@@ -165,15 +156,15 @@ FROM(
 		WHERE (termd=1)
 		GROUP BY Department, `Level`,Sex, RaceDesc)b
 	ON (c.Department=b.Department) AND (c.`Level`=b.`Level`) AND (c.Sex=b.Sex) AND (c.RaceDesc=b.RaceDesc))dpt_level_gender
-WHERE left_emp IS NOT NULL
-ORDER BY Sex, turnover_rate DESC;
+WHERE left_emp IS NOT NULL AND turnover_rate>=50
+ORDER BY turnover_rate DESC;
 
--- male Asian resigned Production manager
--- male Black or African American Software Engineering executive
+-- 100% turnover rate
 SELECT emp_name, Sex, RaceDesc, Department, `Level`, PerformanceScore, Termd, TermReason, EmploymentStatus
 FROM eng_hr_dataset
 WHERE ((Termd=1) AND (`Level` LIKE "Manager") AND (Department LIKE "Production%") AND (RaceDesc LIKE "Asian%") AND (Sex LIKE "%M%")) OR 
-	  ((Termd=1) AND (`Level` LIKE "Executive") AND (Department LIKE "Software Engineering%") AND (RaceDesc LIKE "Black%") AND (Sex LIKE "%M%"));
+	  ((Termd=1) AND (`Level` LIKE "Mid-Level") AND (Department LIKE "Software Engineering%") AND (RaceDesc LIKE "Black%") AND (Sex LIKE "%M%")) OR
+      ((Termd=1) AND (`Level` LIKE "Manager") AND (Department LIKE "IT%") AND (RaceDesc LIKE "White%") AND (Sex LIKE "%F%"));
 
 
 -- Q U E R Y 5
@@ -182,7 +173,7 @@ SELECT TermReason, EmploymentStatus, COUNT(*) AS num_of_employees,
 	   SUM(COUNT(*)) OVER (ORDER BY TermReason, EmploymentStatus DESC) AS running_total
 FROM hr_dataset
 WHERE Termd != 0
-GROUP BY TermReason, EmploymentStatus;	
+GROUP BY TermReason, EmploymentStatus;
 
 -- number of employees who were terminated for cause and their respective department
 SELECT TermReason, EmploymentStatus, Department, COUNT(*) AS num_of_employees
@@ -195,18 +186,17 @@ ORDER BY num_of_employees DESC;
 -- the number of employees who resigned due to unhappiness, but they fully met or exceeds their performance assessment criteria
 -- and their respective manager 
 SELECT Department, ManagerName, COUNT(*) AS num_of_employees
-FROM(
-	SELECT emp_name, Department, Position, ManagerName
-	FROM hr_dataset
-	WHERE (TermReason LIKE 'unhappy') AND ((PerformanceScore LIKE 'Fully Meets') OR (PerformanceScore LIKE 'Exceeds')))uh
+FROM hr_dataset
+WHERE TermReason = 'unhappy'
+  AND PerformanceScore IN ('Fully Meets','Exceeds')
 GROUP BY Department, ManagerName
-ORDER BY num_of_employees DESC;	
+ORDER BY num_of_employees DESC;
 
 -- Q U E R Y 7
 -- overall turnover rate and turnover rate by gender
 -- total number of employees, number of current employees, number of employees who left the company 
 -- only consider those who voluntarily resigned and not have attendance / performance (fully met or exceeds their performance assessment criteria) issues
-SELECT x.Sex, original_total, stayed_emp, left_emp, ROUND(left_emp/((original_total+stayed_emp)/2)*100,2) AS turnover_rate
+/*SELECT x.Sex, original_total, stayed_emp, left_emp, ROUND(left_emp/((original_total+stayed_emp)/2)*100,2) AS turnover_rate
 FROM (
 	SELECT Sex, COUNT(*) AS original_total 
 	FROM hr_dataset
@@ -237,8 +227,49 @@ UNION(
 		SELECT Sex, COUNT(*) AS total_left_emp
 		FROM hr_dataset
 		WHERE (EmploymentStatus LIKE "%Voluntarily%") AND (TermReason NOT LIKE "performance") AND (TermReason NOT LIKE "attendance") AND ((PerformanceScore LIKE 'Fully Meets') OR (PerformanceScore LIKE 'Exceeds')))f
-	ON (d.Sex=f.Sex));
-    
+	ON (d.Sex=f.Sex));*/
+SELECT Sex,
+       COUNT(*) AS original_total,
+       SUM(CASE WHEN Termd = 0 THEN 1 ELSE 0 END) AS stayed_emp,
+       SUM(CASE WHEN Termd = 1 
+                 AND EmploymentStatus LIKE '%Voluntarily%'
+                 AND TermReason NOT LIKE 'performance'
+                 AND TermReason NOT LIKE 'attendance'
+                 AND PerformanceScore IN ('Fully Meets','Exceeds')
+                THEN 1 ELSE 0 END) AS left_emp,
+       ROUND(
+         SUM(CASE WHEN Termd = 1 
+                   AND EmploymentStatus LIKE '%Voluntarily%'
+                   AND TermReason NOT LIKE 'performance'
+                   AND TermReason NOT LIKE 'attendance'
+                   AND PerformanceScore IN ('Fully Meets','Exceeds')
+                  THEN 1 ELSE 0 END)
+         / NULLIF(COUNT(*),0) * 100, 2
+       ) AS turnover_rate
+FROM hr_dataset
+GROUP BY Sex
+UNION ALL
+SELECT 'Overall',
+       COUNT(*) AS original_total,
+       SUM(CASE WHEN Termd = 0 THEN 1 ELSE 0 END) AS stayed_emp,
+       SUM(CASE WHEN Termd = 1 
+                 AND EmploymentStatus LIKE '%Voluntarily%'
+                 AND TermReason NOT LIKE 'performance'
+                 AND TermReason NOT LIKE 'attendance'
+                 AND PerformanceScore IN ('Fully Meets','Exceeds')
+                THEN 1 ELSE 0 END) AS left_emp,
+       ROUND(
+         SUM(CASE WHEN Termd = 1 
+                   AND EmploymentStatus LIKE '%Voluntarily%'
+                   AND TermReason NOT LIKE 'performance'
+                   AND TermReason NOT LIKE 'attendance'
+                   AND PerformanceScore IN ('Fully Meets','Exceeds')
+                  THEN 1 ELSE 0 END)
+         / NULLIF(COUNT(*),0) * 100, 2
+       ) AS turnover_rate
+FROM hr_dataset;
+
+
 -- Q U E R Y 8
 -- median pay of each gender
 SET @row_number:=0; 
@@ -262,10 +293,10 @@ GROUP BY median_group;
 
 -- Q U E R Y 9
 -- the best recruiting platform to use if the company want to ensure diversity
-SELECT RecruitmentSource, RaceDesc, COUNT(*) AS num_of_employees
+SELECT RecruitmentSource, COUNT(*) AS num_of_employees
 FROM hr_dataset
 WHERE (RaceDesc NOT LIKE 'White') AND (Termd=0) AND ((PerformanceScore LIKE "%Exceeds%") OR (PerformanceScore LIKE "%Fully Meets%"))
-GROUP BY RecruitmentSource, RaceDesc
-ORDER BY RaceDesc, num_of_employees DESC;	
+GROUP BY RecruitmentSource
+ORDER BY num_of_employees DESC;	
 
 
